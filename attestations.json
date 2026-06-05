@@ -6,5 +6,13 @@
       "signature": "f5523babdeb69f367c652cbc5a07d9284f3ddd3c5df4f45e5dec2e7d023cf9dca5162d25cf4fe3796c31834795d6d837333de421795945154e4295dc0620f703",
       "note": "system.txt reglas 8-9 (no arrow fns / no nodos anidados). Autorizado por Mauricio; cierra brecha R6 del push directo 31bbe07."
     }
+  ],
+  "sdk_reference": [
+    {
+      "reviewer": "seguridad-admin",
+      "content_sha256": "e148dcae696fecdb8062b4a521a4b20f73e6ebd629793caf3197201b9e1826b5",
+      "signature": "0ff03c751cd010d13557a499d7d9acdfca8e8d0f508612d4815c4f046444eaa4b8bf1b7bb3fb5b9121fcd9fd1cb0a7158099f74613e0d7f4febf1c893cb17e08",
+      "note": "Import de expr (fix de ReferenceError). Autorizado por Mauricio."
+    }
   ]
 }
