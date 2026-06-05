@@ -7,7 +7,7 @@
  * así que el pipeline no corría desde un clon limpio. Ahora vive acá y expone `callMcp`.
  *
  * Herramientas que el pipeline consume (vía method 'tools/call'):
- *   - list_credentials        -> [{ id, name, type }]
+ *   - list_credentials        -> { data: [{ id, name, type }], count }
  *   - validate_workflow       -> { valid: bool, errors?: [...] }
  *   - create_workflow_from_code -> { workflowId, name, url, isError? }
  *   - prepare_test_pin_data   -> { nodesWithoutSchema: [...], nodeSchemasToGenerate: {...} }
@@ -37,7 +37,8 @@ function mockToolResult(params) {
   const args = (params && params.arguments) || {};
   switch (name) {
     case 'list_credentials':
-      return [{ id: 'cred-mock-1', name: 'Gmail OAuth2 (mock)', type: 'gmailOAuth2' }];
+      // Forma del server real: { data: [...], count } (no array pelado).
+      return { data: [{ id: 'cred-mock-1', name: 'Gmail OAuth2 (mock)', type: 'gmailOAuth2' }], count: 1 };
 
     case 'validate_workflow': {
       // Validación superficial pero NO trivial: exige export default workflow(...) y el import del SDK.
