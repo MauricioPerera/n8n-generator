@@ -10,9 +10,9 @@
   "sdk_reference": [
     {
       "reviewer": "seguridad-admin",
-      "content_sha256": "e148dcae696fecdb8062b4a521a4b20f73e6ebd629793caf3197201b9e1826b5",
-      "signature": "0ff03c751cd010d13557a499d7d9acdfca8e8d0f508612d4815c4f046444eaa4b8bf1b7bb3fb5b9121fcd9fd1cb0a7158099f74613e0d7f4febf1c893cb17e08",
-      "note": "Import de expr (fix de ReferenceError). Autorizado por Mauricio."
+      "content_sha256": "24ba62caa1cab632550449396bcd8a38e6a396722f674b2e5633873ae790c47c",
+      "signature": "cf0a40019513546e071456ece9ede4a3cf07cc08976fe48cf3e71bdc4755aee83503327675e8f69bc6ff2cc897d6d6f73f6755e822355b128b72900c3035be0c",
+      "note": "Cheat-sheet reescrito a la sintaxis real del SDK (sin import; validado contra validate_workflow del MCP server). Autorizado por Mauricio."
     }
   ]
 }
