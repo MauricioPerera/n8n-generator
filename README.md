@@ -20,6 +20,11 @@ Toma un prompt, arma el contexto bajo contrato, consulta un LLM local (Ollama), 
 > prompt firmado exige una atestación Ed25519 de revisor. El gate clona la referencia de CCDD
 > pinneada por **SHA inmutable** (== release `v0.3.1`).
 
+**Verificado end-to-end contra un n8n MCP Server real** (v1.1.0) + Ollama: descubre nodos y
+credenciales, genera código SDK válido, linkea credenciales reales por ID, crea el workflow y lo
+ejecuta con **efecto externo real**. El camino que llevó ahí —y las 7 capas de bugs que solo aparecieron
+corriendo de verdad— está en [`docs/FINDINGS.md`](docs/FINDINGS.md). Versiones en [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Cómo funciona (pipeline CCDD)
 
 ```mermaid
