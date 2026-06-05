@@ -3,64 +3,70 @@
 El pipeline (`generate_with_ccdd.js`, `generate_and_verify.js`) habla con una instancia de n8n a
 través de un **servidor MCP**, vía `callMcp(method, params)` de [`run_mcp_action.js`](../run_mcp_action.js).
 
-Este documento define **la interfaz que ese servidor debe cumplir**. El repo no incluye un servidor
-MCP funcional: trae `run_mcp_action.js` con un cliente real (JSON-RPC sobre `N8N_MCP_URL`) y un **mock
-determinista** (`MCP_MOCK=1`) que implementa exactamente este contrato para correr/probar sin n8n vivo
-(ver [`run_mcp_action.js`](../run_mcp_action.js) como fuente de verdad).
+Ese servidor es el **n8n MCP Server oficial** (verificado contra **v1.1.0**), que n8n expone en
+`/mcp-server/http`. Expone **27 herramientas**; las **5 que este pipeline usa son un subconjunto**.
+`run_mcp_action.js` trae un cliente **real** (que habla el transporte de abajo) y un **mock
+determinista** (`MCP_MOCK=1`) que implementa esas 5 para correr/probar sin n8n vivo.
 
-## Transporte
+## Transporte (verificado contra el servidor real)
 
-`callMcp` envía JSON-RPC 2.0 y espera una respuesta con esta forma:
+- **Streamable-HTTP**: `POST` JSON-RPC 2.0 al endpoint; la respuesta llega por **SSE**
+  (`Content-Type: text/event-stream`, frames `event: message` / `data: {…}`), no JSON plano.
+- **Auth**: header `Authorization: Bearer <token>` (vía `N8N_MCP_TOKEN`).
+- **Stateless**: no exige handshake `initialize` ni `Mcp-Session-Id`; cada POST es independiente.
+- Todas las llamadas usan `method = "tools/call"`, `params = { name, arguments }`.
+
+La respuesta de `tools/call` trae el payload **dos veces**:
 
 ```json
-{ "jsonrpc": "2.0", "id": 1, "result": { "content": [ { "type": "text", "text": "<json-string>" } ] } }
+{ "jsonrpc": "2.0", "id": 1, "result": {
+    "content": [ { "type": "text", "text": "<json-string>" } ],
+    "structuredContent": { } } }
 ```
 
-El consumidor hace `JSON.parse(resp.result.content[0].text)`. Es decir: **el payload útil de cada
-herramienta es un string JSON dentro de `result.content[0].text`.**
+El consumidor hace `JSON.parse(resp.result.content[0].text)`. (`structuredContent` es el mismo objeto
+ya parseado; el pipeline usa `content[0].text`.)
 
-Todas las llamadas usan `method = "tools/call"` y `params = { name, arguments }`.
-
-## Herramientas
+## Las 5 herramientas que usa el pipeline
 
 | Herramienta | `arguments` | `text` (JSON parseado) |
 | :--- | :--- | :--- |
-| `list_credentials` | `{}` | `[{ id, name, type }]` — credenciales disponibles en la instancia |
+| `list_credentials` | `{}` | `{ data: [{ id, name, type }], count }` ⚠️ |
 | `validate_workflow` | `{ code }` | `{ valid: boolean, errors?: string[] }` |
 | `create_workflow_from_code` | `{ code, description }` | `{ workflowId, name, url, isError? }` |
 | `prepare_test_pin_data` | `{ workflowId }` | `{ nodesWithoutSchema: string[], nodeSchemasToGenerate: object }` |
 | `test_workflow` | `{ workflowId, pinData }` | `{ status, executionId }` |
 
-### Ejemplos de respuesta (el `text` ya parseado)
+> ⚠️ **Diferencia mock ↔ real:** el servidor real envuelve `list_credentials` en
+> `{ data: [...], count }`. El **mock** de `run_mcp_action.js` devuelve un **array pelado**
+> `[{id,name,type}]` (y `generate_with_ccdd.js` asume `.length`). Contra el server real, ese acceso
+> hay que adaptarlo a `.data`. Es un *follow-up* conocido; ver el README (Limitaciones).
 
-```jsonc
-// list_credentials
-[ { "id": "cred-1", "name": "Gmail OAuth2", "type": "gmailOAuth2" } ]
+## Las 27 herramientas del servidor (panorama)
 
-// validate_workflow  (code válido)
-{ "valid": true }
-// validate_workflow  (code inválido)
-{ "valid": false, "errors": ["falta export default workflow(...)"] }
+Workflows: `search_workflows`, `get_workflow_details`, `create_workflow_from_code`, `update_workflow`,
+`publish_workflow`, `unpublish_workflow`, `archive_workflow`, `validate_workflow`. ·
+Ejecución: `execute_workflow`, `test_workflow`, `prepare_test_pin_data`, `get_execution`,
+`search_executions`. · SDK/descubrimiento: `get_sdk_reference`, `search_nodes`, `get_node_types`,
+`get_suggested_nodes`. · Credenciales: `list_credentials`. · Data tables: `search_data_tables`,
+`create_data_table`, `rename_data_table`, `add_data_table_column`, `delete_data_table_column`,
+`rename_data_table_column`, `add_data_table_rows`. · Org: `search_projects`, `search_folders`.
 
-// create_workflow_from_code
-{ "workflowId": "wf-123", "name": "Webhook Filter Gmail", "url": "http://localhost:5678/workflow/wf-123" }
+## No confundir con la n8n Public REST API
 
-// prepare_test_pin_data
-{ "nodesWithoutSchema": ["Webhook Trigger"], "nodeSchemasToGenerate": {} }
+La [Public REST API](https://docs.n8n.io/api/) (`/api/v1`, OpenAPI) es una **superficie distinta y
+más limitada**: tiene `GET /credentials` y `POST /workflows` (que toma **JSON**, no código SDK), pero
+**no** valida código, **no** ejecuta workflows on-demand, **no** tiene pin-data. Las capacidades
+SDK-aware y de ejecución del pipeline (`validate_workflow`, `create_workflow_from_code`,
+`test_workflow`, …) **solo existen en el MCP server**, no en la API pública.
 
-// test_workflow
-{ "status": "success", "executionId": "exec-123" }
-```
-
-## Implementar uno
-
-Cualquier servidor MCP que exponga estas 5 herramientas con estas formas sirve. Para apuntar el
-pipeline a uno real:
+## Apuntar al servidor real
 
 ```bash
-export N8N_MCP_URL=http://localhost:<puerto>/mcp   # tu servidor MCP de n8n
+export N8N_MCP_URL=http://localhost:5678/mcp-server/http
+export N8N_MCP_TOKEN=<tu JWT de n8n>     # NO lo commitees
 node generate_with_ccdd.js "tu prompt"
 ```
 
-Sin `N8N_MCP_URL` (o con `MCP_MOCK=1`), `run_mcp_action.js` usa el mock — útil para el smoke test y
-para validar el cableado del pipeline sin infraestructura.
+Sin `N8N_MCP_URL` (o con `MCP_MOCK=1`), `run_mcp_action.js` usa el **mock** — útil para el smoke test
+y para validar el cableado del pipeline sin infraestructura.
