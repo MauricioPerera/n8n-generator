@@ -8,9 +8,12 @@ Contract-Driven Development): el contexto que recibe el LLM se declara como un *
 Toma un prompt, arma el contexto bajo contrato, consulta un LLM local (Ollama), genera código del
 `@n8n/workflow-sdk`, y lo valida / crea / testea contra una instancia de n8n vía un servidor MCP.
 
-> **Estado:** prueba de concepto. El **runtime de CCDD (ensamblado + guardrails, L3) está aplicado
-> de verdad**; la capa de gobernanza (firmas L1, gate de regresión L2, atestaciones) está presente
-> como artefactos pero **todavía no está wireada al pipeline** (ver *Limitaciones*).
+> **Estado:** prueba de concepto, con la **gobernanza CCDD enforceada**. El runtime (ensamblado +
+> guardrails, **L3**) corre antes de cada inferencia; **L1 (firmas) y L2 (gate de regresión)** corren
+> en CI ([`.github/workflows/ccdd-gate.yml`](.github/workflows/ccdd-gate.yml)) como *required check*
+> sobre una `main` protegida — un cambio que debilite el contrato no puede mergearse, y cambiar un
+> prompt firmado exige una atestación Ed25519 de revisor. El gate clona la referencia de CCDD
+> pinneada por **SHA inmutable** (== release `v0.3.1`).
 
 ## Cómo funciona (pipeline CCDD)
 
@@ -22,7 +25,8 @@ Toma un prompt, arma el contexto bajo contrato, consulta un LLM local (Ollama), 
    guardrail bloquea (p. ej. un secreto), **el pipeline aborta** (exit 2).
 4. Lee el payload ensamblado y su hash de `last-assembly.json` (auditable / reproducible).
 5. Consulta el LLM local (Ollama) con ese payload.
-6. Valida el código generado (`validate_workflow` vía MCP).
+6. Valida el código generado (`validate_workflow` vía MCP); si no valida, le devuelve los errores al
+   modelo y reintenta (**loop de auto-corrección**, hasta 3 intentos).
 7. Crea el workflow en n8n (`create_workflow_from_code`).
 8. Prepara pin data de prueba.
 9. Corre un test run y escribe `reporte_ccdd_final.md`.
@@ -33,12 +37,12 @@ El **contrato** (`context.yaml`) declara 4 slots: `system_instructions` (crític
 
 ## Prerrequisitos
 
-- **[Ollama](https://ollama.com/)** corriendo en `localhost:11434` con el modelo `gemma4` (o el que
-  configures). `ollama pull gemma4`.
+- **[Ollama](https://ollama.com/)** corriendo en `localhost:11434` con el modelo `qwen2.5:1.5b` (o el
+  que configures vía `OLLAMA_MODEL`). `ollama pull qwen2.5:1.5b`.
 - Una instancia de **n8n** (por defecto en `localhost:5678`).
-- Un **servidor MCP** para n8n y el módulo `run_mcp_action.js` que expone `callMcp(...)`.
-  ⚠️ **Hoy `run_mcp_action.js` NO está incluido en el repo** (los scripts hacen
-  `require('../run_mcp_action.js')`). Ver *Limitaciones*.
+- Un **servidor MCP** para n8n. El módulo `run_mcp_action.js` (incluido en el repo) expone
+  `callMcp(...)`: modo real (JSON-RPC sobre `N8N_MCP_URL`) y modo **mock** determinista (`MCP_MOCK=1`)
+  para correr/probar sin n8n vivo.
 - La **implementación de referencia de CCDD** ([`ccdd.py`](https://github.com/MauricioPerera/ccdd)) y
   un Python con `pyyaml`, `jsonschema`, `cryptography`.
 - Node.js 18+ (usa `fetch` nativo).
@@ -63,24 +67,33 @@ node generate_with_ccdd.js "Crea un flujo que se active con un webhook, filtre p
 
 | Archivo | Qué hace | CCDD |
 | :--- | :--- | :--- |
-| `generate_with_ccdd.js` | **Pipeline canónico** — contrato + assemble + guardrails | ✅ sí (L3) |
+| `generate_with_ccdd.js` | **Pipeline canónico** — contrato + assemble + guardrails | ✅ L3 runtime (+ L1/L2 en CI) |
 | `generate_and_verify.js` | Pipeline previo, prompt directo sin contrato | ❌ no |
 | `n8n_generator.py` | Generador Python con function-calling (Ollama), standalone | ❌ no |
+| `test_pipeline_smoke.js` | Smoke: contrato del mock MCP + pipeline e2e con **ensamble CCDD real** | — (prueba) |
 
-## Limitaciones conocidas (roadmap)
+### Probar sin infraestructura
+
+El smoke test corre el pipeline de punta a punta mockeando lo externo (n8n + LLM) pero ejecutando el
+**ensamble CCDD real**. Es lo que valida el CI ([`pipeline-smoke.yml`](.github/workflows/pipeline-smoke.yml)):
+
+```bash
+CCDD_PATH=/ruta/a/ccdd/ccdd_reference/ccdd.py node test_pipeline_smoke.js
+```
+
+## Limitaciones conocidas
 
 Honestidad de alcance, en la misma línea que CCDD:
 
-- **`run_mcp_action.js` no está en el repo** → el pipeline no corre como se clona. Hay que proveerlo
-  (o documentar el servidor MCP). *Bloqueante de reproducibilidad.*
-- **Gobernanza no enforceada:** el pipeline solo corre `assemble` (L3). No corre `ccdd.py lint`
-  (verificación de firmas, L1) ni `ccdd.py diff` (gate de regresión, L2), así que `reviewers.json`,
-  `attestations.json` y `expected-hashes.json` existen pero **ningún código los hace cumplir**.
-- **La atestación de `system_instructions` está caduca**: cubre un hash que no es el contenido
-  actual (fue un parche temporal de depuración). Debe re-atestarse o eliminarse.
-- **`expr(...)` no está en el `import`** de `prompts/sdk_reference.txt` aunque los ejemplos lo usan;
-  el patrón se propaga al código generado. Conviene corregirlo (y re-firmar el slot).
-- Sin tests automatizados.
+- **El pipeline completo requiere infraestructura externa**: una instancia de n8n viva, su servidor
+  MCP y Ollama. Eso no corre en CI — el smoke test (`test_pipeline_smoke.js`) mockea n8n y el LLM con
+  frontera explícita y ejerce el ensamble CCDD real. Para el flujo de punta a punta hace falta ese
+  stack local.
+- **Modelo chico** (`qwen2.5:1.5b` por defecto) con loop de auto-corrección: es un PoC, no producción.
+- `generate_and_verify.js` y `n8n_generator.py` son variantes **sin** contrato CCDD (ver *Entrypoints*).
+
+El gate de gobernanza, las atestaciones y la corrección del `import` de `expr` (que antes figuraban
+acá como pendientes) ya están resueltos y enforceados; ver *Estado* arriba.
 
 ## Licencia
 
