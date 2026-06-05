@@ -12,7 +12,10 @@ variable. MAL: `const workflow = workflow(...)`. BIEN: nombrá las variables dis
 REGLA 3: Definí cada nodo/trigger como una const aparte, y encadenalos SOLO en el `export default
 workflow(...)`. No anides definiciones de nodos dentro de la config de otro. Nada de arrow functions.
 
-REGLA 4: Para credenciales usá `newCredential('Nombre')`. Nunca inventes IDs ni claves.
+REGLA 4: Credenciales. Si la credencial YA EXISTE (aparece en CREDENCIALES DISPONIBLES con su `id`),
+referenciala por **ID exacto**: `newCredential('Nombre', 'id-exacto-de-la-lista')` — así el nodo queda
+linkeado a la credencial real. `newCredential('Nombre')` SIN id **NO linkea** (deja el nodo sin auth);
+usalo solo si no hay ninguna credencial disponible para ese tipo. Nunca inventes IDs ni claves.
 
 Webhook Trigger (v2.1):
 const webhook = trigger({
@@ -59,7 +62,7 @@ const sendEmail = node({
       messageType: 'text',
       message: expr('Error: {{ $json.body?.message ?? $json.message }}')
     },
-    credentials: { gmailOAuth2: newCredential('Gmail OAuth2') }
+    credentials: { gmailOAuth2: newCredential('Gmail OAuth2', 'ID_EXACTO_DE_CREDENCIALES_DISPONIBLES') }
   }
 });
 

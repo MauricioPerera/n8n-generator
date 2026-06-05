@@ -10,9 +10,9 @@
   "sdk_reference": [
     {
       "reviewer": "seguridad-admin",
-      "content_sha256": "24ba62caa1cab632550449396bcd8a38e6a396722f674b2e5633873ae790c47c",
-      "signature": "cf0a40019513546e071456ece9ede4a3cf07cc08976fe48cf3e71bdc4755aee83503327675e8f69bc6ff2cc897d6d6f73f6755e822355b128b72900c3035be0c",
-      "note": "Cheat-sheet reescrito a la sintaxis real del SDK (sin import; validado contra validate_workflow del MCP server). Autorizado por Mauricio."
+      "content_sha256": "fdc876711153641325010824b00f7773ac0d52695d359b0fb5b5a31629a4d795",
+      "signature": "9b06db2d2d8910a4e618c9b76cc0d0ab0ddc1cd8904fe31a78f94b8c70402b4ce0523dae7db4f08ba7b68a2b144965bab039ca1f81cde714c6ffad4ff019f300",
+      "note": "Linkeo de credencial por ID exacto: newCredential('Nombre','id'). Verificado: la firma de 2 args linkea a la credencial real; la de 1 arg deja el nodo sin auth. Autorizado por Mauricio."
     }
   ]
 }
