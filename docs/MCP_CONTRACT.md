@@ -31,16 +31,15 @@ ya parseado; el pipeline usa `content[0].text`.)
 
 | Herramienta | `arguments` | `text` (JSON parseado) |
 | :--- | :--- | :--- |
-| `list_credentials` | `{}` | `{ data: [{ id, name, type }], count }` ⚠️ |
+| `list_credentials` | `{}` | `{ data: [{ id, name, type }], count }` |
 | `validate_workflow` | `{ code }` | `{ valid: boolean, errors?: string[] }` |
 | `create_workflow_from_code` | `{ code, description }` | `{ workflowId, name, url, isError? }` |
 | `prepare_test_pin_data` | `{ workflowId }` | `{ nodesWithoutSchema: string[], nodeSchemasToGenerate: object }` |
 | `test_workflow` | `{ workflowId, pinData }` | `{ status, executionId }` |
 
-> ⚠️ **Diferencia mock ↔ real:** el servidor real envuelve `list_credentials` en
-> `{ data: [...], count }`. El **mock** de `run_mcp_action.js` devuelve un **array pelado**
-> `[{id,name,type}]` (y `generate_with_ccdd.js` asume `.length`). Contra el server real, ese acceso
-> hay que adaptarlo a `.data`. Es un *follow-up* conocido; ver el README (Limitaciones).
+> **Forma de `list_credentials`:** tanto el server real como el **mock** devuelven
+> `{ data: [...], count }` (alineados). `generate_with_ccdd.js` lee `.data` y tolera además un array
+> pelado por compatibilidad.
 
 ## Las 27 herramientas del servidor (panorama)
 

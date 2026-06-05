@@ -98,8 +98,10 @@ async function runCCDDWorkflowGeneration(prompt) {
   try {
     const credResult = await callMcp("tools/call", { name: "list_credentials", arguments: {} });
     const credOutput = JSON.parse(credResult.result.content[0].text);
-    if (credOutput && credOutput.length > 0) {
-      credentialsListStr = credOutput.map(c => `- ID: ${c.id}, Name: ${c.name}, Type: ${c.type}`).join('\n');
+    // El n8n MCP Server real envuelve en { data: [...], count }; normalizamos (y toleramos array pelado).
+    const creds = Array.isArray(credOutput) ? credOutput : (credOutput.data || []);
+    if (creds.length > 0) {
+      credentialsListStr = creds.map(c => `- ID: ${c.id}, Name: ${c.name}, Type: ${c.type}`).join('\n');
     }
   } catch (e) {
     console.warn("[-] Warning: could not list credentials via MCP:", e.message);

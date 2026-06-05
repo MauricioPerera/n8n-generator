@@ -40,16 +40,17 @@ async function tool(name, args) {
 }
 
 (async () => {
-  check('list_credentials -> array de {id,name,type}', () => {
+  check('list_credentials -> { data: [{id,name,type}], count }', () => {
     return tool('list_credentials').then((c) => {
-      assert(Array.isArray(c) && c.length > 0, 'esperaba array no vacío');
-      assert(c[0].id && c[0].name && c[0].type, 'faltan campos id/name/type');
+      assert(c && Array.isArray(c.data) && c.data.length > 0, 'esperaba { data: [...] } no vacío');
+      assert(typeof c.count === 'number', 'falta count');
+      assert(c.data[0].id && c.data[0].name && c.data[0].type, 'faltan campos id/name/type');
     });
   });
 
   // assert async: re-ejecuto secuencial para mensajes claros
   const creds = await tool('list_credentials');
-  assert(Array.isArray(creds) && creds[0].type === 'gmailOAuth2');
+  assert(creds.data[0].type === 'gmailOAuth2');
 
   const goodCode = "import { workflow } from '@n8n/workflow-sdk';\nexport default workflow('x','X');";
   const badCode = 'const x = 1;';

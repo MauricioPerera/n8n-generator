@@ -121,9 +121,6 @@ Honestidad de alcance, en la misma línea que CCDD:
   stack local.
 - **Modelo chico** (`qwen2.5:1.5b` por defecto) con loop de auto-corrección: es un PoC, no producción.
 - `generate_and_verify.js` y `n8n_generator.py` son variantes **sin** contrato CCDD (ver *Entrypoints*).
-- **Forma de `list_credentials`**: el servidor real la envuelve en `{ data: [...], count }`, pero el
-  mock devuelve un array pelado y `generate_with_ccdd.js` asume `.length`. Contra el server real hay
-  que leer `.data` (ver [`docs/MCP_CONTRACT.md`](docs/MCP_CONTRACT.md)).
 
 El gate de gobernanza, las atestaciones y la corrección del `import` de `expr` (que antes figuraban
 acá como pendientes) ya están resueltos y enforceados; ver *Estado* arriba.
