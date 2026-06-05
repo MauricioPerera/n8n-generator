@@ -17,13 +17,18 @@ contract:
       compaction: none
       min_tokens: 350
       review_quorum: 1
-    - id: available_credentials
+    - id: available_nodes
       priority: 2
+      source: { type: dynamic, provider: "mcp_search_nodes" }
+      compaction: truncate
+      max_tokens: 1200
+    - id: available_credentials
+      priority: 3
       source: { type: dynamic, provider: "mcp_list_credentials" }
       compaction: truncate
       max_tokens: 1000
     - id: user_prompt
-      priority: 3
+      priority: 4
       source: { type: runtime }
       compaction: truncate
   guardrails:
