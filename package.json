@@ -1,0 +1,19 @@
+{
+  "name": "n8n-generator",
+  "version": "0.1.0",
+  "description": "Generador de workflows de n8n a partir de lenguaje natural, gobernado por la metodología CCDD (contrato de contexto verificable).",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node generate_with_ccdd.js",
+    "test": "node test_pipeline_smoke.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MauricioPerera/n8n-generator.git"
+  },
+  "keywords": ["n8n", "ccdd", "llm", "ollama", "mcp", "workflow-generator"]
+}
