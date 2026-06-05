@@ -1,0 +1,50 @@
+name: ccdd-gate
+
+# Enforce la gobernanza CCDD del contrato (context.yaml) en CI.
+# Cierra la brecha "gobernanza demostrada pero no wireada": ahora L1 y L2 SÍ corren en cada push/PR.
+# Usa la implementación de referencia de CCDD (clonada en CI) — https://github.com/MauricioPerera/ccdd
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: CCDD L1 — lint del contrato (esquema + presupuesto + firmas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias de CCDD
+        run: pip install pyyaml jsonschema cryptography
+      - name: Clonar la implementación de referencia de CCDD
+        run: git clone --depth 1 https://github.com/MauricioPerera/ccdd ccdd-ref
+      - name: ccdd lint (verifica que los estáticos coincidan con expected-hashes.json)
+        run: python ccdd-ref/ccdd_reference/ccdd.py lint .
+
+  regression-gate:
+    name: CCDD L2 — gate de regresión (diff base vs head)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout HEAD (la rama del PR)
+        uses: actions/checkout@v4
+        with:
+          path: head
+      - name: Checkout BASE (la rama destino)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias de CCDD
+        run: pip install pyyaml jsonschema cryptography
+      - name: Clonar la implementación de referencia de CCDD
+        run: git clone --depth 1 https://github.com/MauricioPerera/ccdd ccdd-ref
+      - name: ccdd diff (bloquea si el PR debilita el contrato sin atestación firmada)
+        run: python ccdd-ref/ccdd_reference/ccdd.py diff base head
