@@ -10,8 +10,8 @@ on:
   pull_request:
 
 env:
-  # Mismo commit inmutable que usa el gate de gobernanza (ccdd-gate.yml). Subir de versión
-  # de CCDD = cambiar este sha en un PR, en los dos workflows.
+  # Mismo commit inmutable que usa el gate de gobernanza (ccdd-gate.yml) == release v0.3.1.
+  # Se fija por SHA, no por el tag (movible). Subir de versión = cambiar este sha en un PR, en los dos workflows.
   CCDD_REF: "8d98ed1a76df86fa4b7a3a63724b538ba4f8c7cf"
 
 jobs:

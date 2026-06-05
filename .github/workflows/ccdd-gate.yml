@@ -15,7 +15,8 @@ on:
   pull_request:
 
 env:
-  # Commit verificado de https://github.com/MauricioPerera/ccdd (main @ 8d98ed1, "Alinear código <-> spec <-> doc").
+  # Commit verificado de https://github.com/MauricioPerera/ccdd == release v0.3.1 (8d98ed1, "Alinear código <-> spec <-> doc").
+  # Se fija por SHA inmutable, NO por el tag (un tag es movible; el sha no). v0.3.1 es solo la etiqueta legible.
   # Es exactamente el código contra el que se validó este gate. Subir de versión = cambiar este sha en un PR.
   CCDD_REF: "8d98ed1a76df86fa4b7a3a63724b538ba4f8c7cf"
 
