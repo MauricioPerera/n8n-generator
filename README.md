@@ -65,9 +65,10 @@ prio 3  user_prompt           runtime              ── truncable
 - **[Ollama](https://ollama.com/)** corriendo en `localhost:11434` con el modelo `qwen2.5:1.5b` (o el
   que configures vía `OLLAMA_MODEL`). `ollama pull qwen2.5:1.5b`.
 - Una instancia de **n8n** (por defecto en `localhost:5678`).
-- Un **servidor MCP** para n8n que cumpla el [contrato de 5 herramientas](docs/MCP_CONTRACT.md). El
-  módulo `run_mcp_action.js` (incluido en el repo) expone `callMcp(...)`: modo real (JSON-RPC sobre
-  `N8N_MCP_URL`) y modo **mock** determinista (`MCP_MOCK=1`) para correr/probar sin n8n vivo.
+- El **n8n MCP Server** (el oficial, verificado v1.1.0, en `…/mcp-server/http`) — ver el
+  [contrato](docs/MCP_CONTRACT.md). El módulo `run_mcp_action.js` (incluido) expone `callMcp(...)`:
+  modo **real** (streamable-HTTP + SSE + Bearer vía `N8N_MCP_URL`/`N8N_MCP_TOKEN`) y modo **mock**
+  determinista (`MCP_MOCK=1`) para correr/probar sin n8n vivo.
 - La **implementación de referencia de CCDD** ([`ccdd.py`](https://github.com/MauricioPerera/ccdd)) y
   un Python con `pyyaml`, `jsonschema`, `cryptography`.
 - Node.js 18+ (usa `fetch` nativo).
@@ -120,6 +121,9 @@ Honestidad de alcance, en la misma línea que CCDD:
   stack local.
 - **Modelo chico** (`qwen2.5:1.5b` por defecto) con loop de auto-corrección: es un PoC, no producción.
 - `generate_and_verify.js` y `n8n_generator.py` son variantes **sin** contrato CCDD (ver *Entrypoints*).
+- **Forma de `list_credentials`**: el servidor real la envuelve en `{ data: [...], count }`, pero el
+  mock devuelve un array pelado y `generate_with_ccdd.js` asume `.length`. Contra el server real hay
+  que leer `.data` (ver [`docs/MCP_CONTRACT.md`](docs/MCP_CONTRACT.md)).
 
 El gate de gobernanza, las atestaciones y la corrección del `import` de `expr` (que antes figuraban
 acá como pendientes) ya están resueltos y enforceados; ver *Estado* arriba.

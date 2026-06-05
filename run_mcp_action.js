@@ -13,9 +13,14 @@
  *   - prepare_test_pin_data   -> { nodesWithoutSchema: [...], nodeSchemasToGenerate: {...} }
  *   - test_workflow           -> { status, executionId }
  *
+ * Estas 5 son un SUBCONJUNTO de las 27 herramientas del n8n MCP Server oficial (v1.1.0),
+ * verificado contra un servidor real (ver docs/MCP_CONTRACT.md).
+ *
  * Dos modos:
- *   - REAL : si N8N_MCP_URL está seteado, hace POST JSON-RPC a esa URL (un MCP server de
- *            n8n con transporte HTTP). Requiere n8n vivo — NO verificable en CI.
+ *   - REAL : si N8N_MCP_URL está seteado, habla el transporte streamable-HTTP del n8n MCP
+ *            Server: POST JSON-RPC, respuesta por SSE (text/event-stream), Bearer auth vía
+ *            N8N_MCP_TOKEN. Es stateless (no exige handshake). Requiere n8n vivo — NO verificable
+ *            en CI. Ej.: N8N_MCP_URL=http://localhost:5678/mcp-server/http N8N_MCP_TOKEN=<jwt>
  *   - MOCK : si N8N_MCP_URL no está, o MCP_MOCK=1, devuelve respuestas canónicas y
  *            deterministas. Permite correr y PROBAR el pipeline (incluido el ensamble CCDD
  *            real) desde un clon limpio, sin n8n ni Ollama. La frontera del mock es explícita.
@@ -82,16 +87,39 @@ async function callMcp(method, params) {
     return wrapJsonRpc(id, mockToolResult(params));
   }
 
-  // Modo REAL: JSON-RPC 2.0 sobre HTTP contra el MCP server de n8n.
+  // Modo REAL: streamable-HTTP del n8n MCP Server oficial (JSON-RPC 2.0).
+  // El server responde por SSE (text/event-stream) y requiere Bearer auth; es stateless
+  // (no exige handshake initialize ni Mcp-Session-Id). Verificado contra n8n MCP Server v1.1.0.
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/event-stream',
+  };
+  if (process.env.N8N_MCP_TOKEN) headers['Authorization'] = `Bearer ${process.env.N8N_MCP_TOKEN}`;
+
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
   });
   if (!res.ok) throw new Error(`MCP HTTP ${res.status} ${res.statusText} (N8N_MCP_URL=${url})`);
-  const json = await res.json();
+
+  const ctype = res.headers.get('content-type') || '';
+  const json = ctype.includes('text/event-stream') ? parseSse(await res.text(), id) : await res.json();
   if (json.error) throw new Error(`MCP error: ${JSON.stringify(json.error)}`);
   return json;
+}
+
+// Extrae el mensaje JSON-RPC de una respuesta SSE (`event: message` / `data: {...}`).
+// Devuelve el frame cuyo id coincide; si no, el primero con result/error.
+function parseSse(text, id) {
+  const frames = [];
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^data:\s?(.*)$/);
+    if (m && m[1].trim().startsWith('{')) {
+      try { frames.push(JSON.parse(m[1])); } catch { /* frame no-JSON, ignorar */ }
+    }
+  }
+  return frames.find((f) => f.id === id) || frames.find((f) => 'result' in f || 'error' in f) || frames[0] || {};
 }
 
 module.exports = { callMcp };
