@@ -25,7 +25,8 @@ Toma un prompt, arma el contexto bajo contrato, consulta un LLM local (Ollama), 
 ```mermaid
 flowchart TD
     P[prompt] --> A
-    MCP[(MCP: list_credentials)] --> A[ccdd assemble<br/>contrato + guardrails]
+    SN[(MCP: search_nodes<br/>grounding de node types)] --> A
+    CR[(MCP: list_credentials)] --> A[ccdd assemble<br/>contrato + guardrails]
     A -->|guardrail bloquea| X[abort exit 2]
     A -->|payload + hash| L[LLM Ollama]
     L --> V{validate_workflow}
@@ -38,25 +39,27 @@ flowchart TD
 `generate_with_ccdd.js` ejecuta:
 
 1. Lista las credenciales de la instancia n8n vía MCP (`list_credentials`).
-2. Escribe `inputs.json` con el `user_prompt` y las credenciales disponibles (slots runtime/dynamic).
-3. **Corre `ccdd.py assemble`** — ensambla el contexto por prioridad y corre los guardrails. Si un
-   guardrail bloquea (p. ej. un secreto), **el pipeline aborta** (exit 2).
-4. Lee el payload ensamblado y su hash de `last-assembly.json` (auditable / reproducible).
-5. Consulta el LLM local (Ollama) con ese payload.
-6. Valida el código generado (`validate_workflow` vía MCP); si no valida, le devuelve los errores al
+2. **Descubre node types reales** vía MCP (`search_nodes`) y los inyecta como *grounding* — para que
+   el modelo use nodos que **existen** y no invente (p. ej. `n8n-nodes-base.log`).
+3. Escribe `inputs.json` con `user_prompt`, nodos y credenciales disponibles (slots dynamic/runtime).
+4. **Corre `ccdd.py assemble`** — ensambla por prioridad y corre los guardrails. Si un guardrail
+   bloquea (p. ej. un secreto), **el pipeline aborta** (exit 2).
+5. Lee el payload ensamblado y su hash de `last-assembly.json` (auditable / reproducible).
+6. Consulta el LLM local (Ollama) con ese payload.
+7. Valida el código generado (`validate_workflow` vía MCP); si no valida, le devuelve los errores al
    modelo y reintenta (**loop de auto-corrección**, hasta 3 intentos).
-7. Crea el workflow en n8n (`create_workflow_from_code`).
-8. Prepara pin data de prueba.
-9. Corre un test run y escribe `reporte_ccdd_final.md`.
+8. Crea el workflow en n8n (`create_workflow_from_code`).
+9. Prepara pin data y corre un test run; escribe `reporte_ccdd_final.md`.
 
-El **contrato** (`context.yaml`) declara 4 slots, más guardrails `no-secrets` y `slot-references`.
+El **contrato** (`context.yaml`) declara 5 slots, más guardrails `no-secrets` y `slot-references`.
 Por prioridad (menor = más retención; los críticos nunca se recortan):
 
 ```
 prio 0  system_instructions   estático · firmado   ── nunca se recorta
 prio 1  sdk_reference         estático · firmado   ── nunca se recorta
-prio 2  available_credentials dinámico (MCP)       ── truncable, máx 1000 tok
-prio 3  user_prompt           runtime              ── truncable
+prio 2  available_nodes       dinámico (MCP)       ── truncable, máx 1200 tok (grounding)
+prio 3  available_credentials dinámico (MCP)       ── truncable, máx 1000 tok
+prio 4  user_prompt           runtime              ── truncable
         presupuesto: 8192 tok entrada − 1500 reservados para la salida
 ```
 

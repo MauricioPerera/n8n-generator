@@ -29,13 +29,19 @@ ya parseado; el pipeline usa `content[0].text`.)
 
 ## Las 5 herramientas que usa el pipeline
 
-| Herramienta | `arguments` | `text` (JSON parseado) |
+| Herramienta | `arguments` | `text` |
 | :--- | :--- | :--- |
+| `search_nodes` | `{ queries: string[] }` | **markdown crudo** (lista de node types reales con versión) |
 | `list_credentials` | `{}` | `{ data: [{ id, name, type }], count }` |
 | `validate_workflow` | `{ code }` | `{ valid: boolean, errors?: string[] }` |
 | `create_workflow_from_code` | `{ code, description }` | `{ workflowId, name, url, isError? }` |
 | `prepare_test_pin_data` | `{ workflowId }` | `{ nodesWithoutSchema: string[], nodeSchemasToGenerate: object }` |
 | `test_workflow` | `{ workflowId, pinData }` | `{ status, executionId }` |
+
+> **`text` no siempre es JSON:** la mayoría devuelve un string JSON en `content[0].text`, pero
+> `search_nodes` (y `get_sdk_reference`) devuelven **markdown crudo**. El pipeline lo regexea para
+> extraer los `n8n-nodes-base.*` reales y los inyecta como *grounding* (slot `available_nodes`), para
+> que el modelo no invente node types. El mock replica ambas formas.
 
 > **Forma de `list_credentials`:** tanto el server real como el **mock** devuelven
 > `{ data: [...], count }` (alineados). `generate_with_ccdd.js` lee `.data` y tolera además un array

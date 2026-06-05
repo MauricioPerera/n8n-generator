@@ -107,9 +107,35 @@ async function runCCDDWorkflowGeneration(prompt) {
     console.warn("[-] Warning: could not list credentials via MCP:", e.message);
   }
 
+  // Step 1.5: Discover REAL node types via MCP (grounding) para que el modelo NO invente node types.
+  console.log("[Paso 1.5] Descubriendo node types reales vía MCP (search_nodes)...");
+  let availableNodesStr = "(descubrimiento de nodos no disponible)";
+  try {
+    const services = ['gmail', 'slack', 'telegram', 'discord', 'notion', 'sheets', 'airtable', 'postgres', 'mysql', 'openai', 'http'];
+    const lower = prompt.toLowerCase();
+    const queries = [...new Set([
+      ...services.filter(s => lower.includes(s)),
+      'webhook', 'schedule trigger', 'manual trigger', 'http request', 'set', 'if', 'filter', 'merge', 'code'
+    ])];
+    const nodesResult = await callMcp("tools/call", { name: "search_nodes", arguments: { queries } });
+    const raw = nodesResult.result.content[0].text;  // markdown crudo (no JSON)
+    const re = /-\s+(n8n-nodes-base\.\w+)\s+\[(\w+)\][\s\S]*?Display Name:\s*([^\n]+)[\s\S]*?Version:\s*([\d.]+)/g;
+    const seen = new Map();
+    let m;
+    while ((m = re.exec(raw)) !== null) {
+      if (!seen.has(m[1])) seen.set(m[1], `- ${m[1]} (v${m[4]}) — ${m[3].trim()} [${m[2]}]`);
+    }
+    const list = [...seen.values()].slice(0, 30);
+    if (list.length) availableNodesStr = list.join('\n');
+    console.log(`[+] ${seen.size} node types reales descubiertos (inyectados como grounding).`);
+  } catch (e) {
+    console.warn("[-] Warning: search_nodes falló:", e.message);
+  }
+
   // Step 2: Write inputs.json for CCDD
   const inputs = {
     user_prompt: prompt,
+    available_nodes: `NODOS DISPONIBLES — usá SOLO estos node types EXACTOS, NO inventes otros (p. ej. NO existe 'n8n-nodes-base.log'):\n${availableNodesStr}`,
     available_credentials: `CREDENCIALES DISPONIBLES EN LA INSTANCIA (usá los IDs exactamente):\n${credentialsListStr}`
   };
   const inputsPath = path.join(__dirname, 'inputs.json');

@@ -7,6 +7,7 @@
  * así que el pipeline no corría desde un clon limpio. Ahora vive acá y expone `callMcp`.
  *
  * Herramientas que el pipeline consume (vía method 'tools/call'):
+ *   - search_nodes            -> markdown crudo (node types reales, para grounding)
  *   - list_credentials        -> { data: [{ id, name, type }], count }
  *   - validate_workflow       -> { valid: bool, errors?: [...] }
  *   - create_workflow_from_code -> { workflowId, name, url, isError? }
@@ -59,16 +60,37 @@ function mockToolResult(params) {
     case 'test_workflow':
       return { status: 'success', executionId: 'exec-mock-001' };
 
+    case 'search_nodes':
+      // El server real devuelve MARKDOWN crudo (no JSON) en content[0].text. Imitamos el formato.
+      return [
+        '## nodos',
+        '- n8n-nodes-base.webhook [TRIGGER]',
+        '  Display Name: Webhook',
+        '  Version: 2.1',
+        '- n8n-nodes-base.gmail [ACTION]',
+        '  Display Name: Gmail',
+        '  Version: 2.1',
+        '- n8n-nodes-base.if [ACTION]',
+        '  Display Name: If',
+        '  Version: 2.2',
+        '- n8n-nodes-base.set [ACTION]',
+        '  Display Name: Edit Fields (Set)',
+        '  Version: 3.4',
+      ].join('\n');
+
     default:
       throw new Error(`run_mcp_action (mock): herramienta desconocida '${name}'`);
   }
 }
 
 function wrapJsonRpc(id, payloadObj) {
+  // Las herramientas que devuelven JSON van como string JSON; las que devuelven texto (search_nodes,
+  // get_sdk_reference) van como texto crudo — igual que el server real.
+  const text = typeof payloadObj === 'string' ? payloadObj : JSON.stringify(payloadObj);
   return {
     jsonrpc: '2.0',
     id,
-    result: { content: [{ type: 'text', text: JSON.stringify(payloadObj) }] },
+    result: { content: [{ type: 'text', text }] },
   };
 }
 
