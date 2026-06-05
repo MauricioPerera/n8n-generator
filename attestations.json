@@ -2,9 +2,9 @@
   "system_instructions": [
     {
       "reviewer": "seguridad-admin",
-      "content_sha256": "15241ae5e03e50dd31dbcf09dad5ef976e0dcadca709e11b8f13e90bcf4ea8db",
-      "signature": "1d7df3401cdb325d488a9cb74d26d38c57e1b82a72d3141fa21043458a8977783a60fc7ab348b612633e5f082b6f7fe7ed4c29d93d9880e2a10e06f90f204b0e",
-      "note": "Aceptado temporalmente por depuracion de mocks"
+      "content_sha256": "e313daae053e39028f2a4364e0ad48597206dca9f80724595b5954382cdaaeaf",
+      "signature": "f5523babdeb69f367c652cbc5a07d9284f3ddd3c5df4f45e5dec2e7d023cf9dca5162d25cf4fe3796c31834795d6d837333de421795945154e4295dc0620f703",
+      "note": "system.txt reglas 8-9 (no arrow fns / no nodos anidados). Autorizado por Mauricio; cierra brecha R6 del push directo 31bbe07."
     }
   ]
 }
