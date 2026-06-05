@@ -5,4 +5,5 @@ inputs.json
 workflow_generado.json
 workflow_sdk_generado*.js
 diff-report.json
+reporte_ccdd_final.md
 *.key

@@ -1,5 +1,10 @@
 # n8n-generator
 
+[![ccdd-gate](https://github.com/MauricioPerera/n8n-generator/actions/workflows/ccdd-gate.yml/badge.svg)](https://github.com/MauricioPerera/n8n-generator/actions/workflows/ccdd-gate.yml)
+[![pipeline-smoke](https://github.com/MauricioPerera/n8n-generator/actions/workflows/pipeline-smoke.yml/badge.svg)](https://github.com/MauricioPerera/n8n-generator/actions/workflows/pipeline-smoke.yml)
+[![CCDD-governed](https://img.shields.io/badge/CCDD-governed-blue)](https://github.com/MauricioPerera/ccdd)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 Generador de **workflows de [n8n](https://n8n.io/)** a partir de un prompt en lenguaje natural,
 alineado con la metodología **[CCDD](https://github.com/MauricioPerera/ccdd)** (Context
 Contract-Driven Development): el contexto que recibe el LLM se declara como un **contrato**
@@ -17,6 +22,19 @@ Toma un prompt, arma el contexto bajo contrato, consulta un LLM local (Ollama), 
 
 ## Cómo funciona (pipeline CCDD)
 
+```mermaid
+flowchart TD
+    P[prompt] --> A
+    MCP[(MCP: list_credentials)] --> A[ccdd assemble<br/>contrato + guardrails]
+    A -->|guardrail bloquea| X[abort exit 2]
+    A -->|payload + hash| L[LLM Ollama]
+    L --> V{validate_workflow}
+    V -->|inválido, hasta 3x| L
+    V -->|válido| C[create_workflow_from_code]
+    C --> T[pin data + test_workflow]
+    T --> R[reporte_ccdd_final.md]
+```
+
 `generate_with_ccdd.js` ejecuta:
 
 1. Lista las credenciales de la instancia n8n vía MCP (`list_credentials`).
@@ -31,18 +49,25 @@ Toma un prompt, arma el contexto bajo contrato, consulta un LLM local (Ollama), 
 8. Prepara pin data de prueba.
 9. Corre un test run y escribe `reporte_ccdd_final.md`.
 
-El **contrato** (`context.yaml`) declara 4 slots: `system_instructions` (crítico, firmado),
-`sdk_reference` (crítico, firmado), `available_credentials` (dinámico, vía MCP) y `user_prompt`
-(runtime), más guardrails `no-secrets` y `slot-references`.
+El **contrato** (`context.yaml`) declara 4 slots, más guardrails `no-secrets` y `slot-references`.
+Por prioridad (menor = más retención; los críticos nunca se recortan):
+
+```
+prio 0  system_instructions   estático · firmado   ── nunca se recorta
+prio 1  sdk_reference         estático · firmado   ── nunca se recorta
+prio 2  available_credentials dinámico (MCP)       ── truncable, máx 1000 tok
+prio 3  user_prompt           runtime              ── truncable
+        presupuesto: 8192 tok entrada − 1500 reservados para la salida
+```
 
 ## Prerrequisitos
 
 - **[Ollama](https://ollama.com/)** corriendo en `localhost:11434` con el modelo `qwen2.5:1.5b` (o el
   que configures vía `OLLAMA_MODEL`). `ollama pull qwen2.5:1.5b`.
 - Una instancia de **n8n** (por defecto en `localhost:5678`).
-- Un **servidor MCP** para n8n. El módulo `run_mcp_action.js` (incluido en el repo) expone
-  `callMcp(...)`: modo real (JSON-RPC sobre `N8N_MCP_URL`) y modo **mock** determinista (`MCP_MOCK=1`)
-  para correr/probar sin n8n vivo.
+- Un **servidor MCP** para n8n que cumpla el [contrato de 5 herramientas](docs/MCP_CONTRACT.md). El
+  módulo `run_mcp_action.js` (incluido en el repo) expone `callMcp(...)`: modo real (JSON-RPC sobre
+  `N8N_MCP_URL`) y modo **mock** determinista (`MCP_MOCK=1`) para correr/probar sin n8n vivo.
 - La **implementación de referencia de CCDD** ([`ccdd.py`](https://github.com/MauricioPerera/ccdd)) y
   un Python con `pyyaml`, `jsonschema`, `cryptography`.
 - Node.js 18+ (usa `fetch` nativo).
@@ -60,8 +85,12 @@ El pipeline CCDD es configurable para que sea portable:
 
 ```bash
 export CCDD_PATH=/ruta/a/ccdd/ccdd_reference/ccdd.py
-node generate_with_ccdd.js "Crea un flujo que se active con un webhook, filtre por 'error', y envíe por Gmail"
+npm start -- "Crea un flujo que se active con un webhook, filtre por 'error', y envíe por Gmail"
+# (equivalente a: node generate_with_ccdd.js "…")
+npm test        # smoke: pipeline e2e con n8n+LLM mock y ensamble CCDD real
 ```
+
+Un ejemplo de la salida real del pipeline está en [`reporte_ejemplo.md`](reporte_ejemplo.md).
 
 ## Entrypoints
 
@@ -78,7 +107,7 @@ El smoke test corre el pipeline de punta a punta mockeando lo externo (n8n + LLM
 **ensamble CCDD real**. Es lo que valida el CI ([`pipeline-smoke.yml`](.github/workflows/pipeline-smoke.yml)):
 
 ```bash
-CCDD_PATH=/ruta/a/ccdd/ccdd_reference/ccdd.py node test_pipeline_smoke.js
+CCDD_PATH=/ruta/a/ccdd/ccdd_reference/ccdd.py npm test
 ```
 
 ## Limitaciones conocidas

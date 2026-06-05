@@ -36,4 +36,4 @@ jobs:
         env:
           CCDD_PATH: ccdd-ref/ccdd_reference/ccdd.py
           CCDD_PYTHON: python
-        run: node test_pipeline_smoke.js
+        run: npm test
