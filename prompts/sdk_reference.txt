@@ -1,7 +1,7 @@
 n8n Workflow SDK Usage Cheat Sheet:
 
 Imports:
-import { workflow, node, trigger, newCredential, ifElse, switchCase, merge } from '@n8n/workflow-sdk';
+import { workflow, node, trigger, newCredential, ifElse, switchCase, merge, expr } from '@n8n/workflow-sdk';
 
 Basic Webhook Trigger (v2.1):
 const webhook = trigger({
