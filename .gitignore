@@ -1,0 +1,8 @@
+venv/
+node_modules/
+last-assembly.json
+inputs.json
+workflow_generado.json
+workflow_sdk_generado*.js
+diff-report.json
+*.key

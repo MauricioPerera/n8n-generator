@@ -1,0 +1,36 @@
+ccdd_version: "0.3"
+contract:
+  name: "n8n-workflow-generator"
+  budget:
+    model: "gemma4:latest"
+    max_tokens: 8192
+    reserve_output: 1500
+  slots:
+    - id: system_instructions
+      priority: 0
+      source: { type: static, path: "prompts/system.txt", sign: true }
+      compaction: none
+      min_tokens: 250
+    - id: sdk_reference
+      priority: 1
+      source: { type: static, path: "prompts/sdk_reference.txt", sign: true }
+      compaction: none
+      min_tokens: 350
+      review_quorum: 1
+    - id: available_credentials
+      priority: 2
+      source: { type: dynamic, provider: "mcp_list_credentials" }
+      compaction: truncate
+      max_tokens: 1000
+    - id: user_prompt
+      priority: 3
+      source: { type: runtime }
+      compaction: truncate
+  guardrails:
+    - id: no-secrets
+      type: regex_deny
+      pattern: "(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+      on_fail: abort
+    - id: slot-references
+      type: reference_check
+      on_fail: abort

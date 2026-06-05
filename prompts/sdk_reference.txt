@@ -1,0 +1,65 @@
+n8n Workflow SDK Usage Cheat Sheet:
+
+Imports:
+import { workflow, node, trigger, newCredential, ifElse, switchCase, merge } from '@n8n/workflow-sdk';
+
+Basic Webhook Trigger (v2.1):
+const webhook = trigger({
+  type: 'n8n-nodes-base.webhook',
+  version: 2.1,
+  config: {
+    name: 'Webhook Trigger',
+    parameters: { path: 'webhook-path', httpMethod: 'POST', responseMode: 'onReceived' },
+    position: [250, 300]
+  },
+  output: [{ body: { message: 'hello error' } }]
+});
+
+Filter/ifElse Node (v2.2):
+const checkError = ifElse({
+  version: 2.2,
+  config: {
+    name: 'Check Error',
+    parameters: {
+      conditions: {
+        options: { caseSensitive: false, typeValidation: 'loose' },
+        conditions: [
+          {
+            leftValue: expr('{{ $json.body?.message ?? $json.message }}'),
+            operator: { type: 'string', operation: 'contains' },
+            rightValue: 'error'
+          }
+        ],
+        combinator: 'and'
+      }
+    },
+    position: [500, 300]
+  }
+});
+
+Gmail Node (v2.1):
+const sendEmail = node({
+  type: 'n8n-nodes-base.gmail',
+  version: 2.1,
+  config: {
+    name: 'Send Gmail Email',
+    parameters: {
+      resource: 'message',
+      operation: 'send',
+      sendTo: 'user@example.com',
+      subject: 'Error Alert',
+      messageType: 'text',
+      message: expr('Error: {{ $json.body?.message ?? $json.message }}')
+    },
+    credentials: { gmailOAuth2: newCredential('Gmail OAuth2') },
+    position: [750, 300]
+  },
+  output: [{ id: '123' }]
+});
+
+Chaining Workflow with Conditional Branch:
+export default workflow('webhook-filter-gmail', 'Webhook Filter Gmail Workflow')
+  .add(webhook)
+  .to(checkError
+    .onTrue(sendEmail)
+  );

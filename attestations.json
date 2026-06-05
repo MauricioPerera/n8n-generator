@@ -1,0 +1,10 @@
+{
+  "system_instructions": [
+    {
+      "reviewer": "seguridad-admin",
+      "content_sha256": "15241ae5e03e50dd31dbcf09dad5ef976e0dcadca709e11b8f13e90bcf4ea8db",
+      "signature": "1d7df3401cdb325d488a9cb74d26d38c57e1b82a72d3141fa21043458a8977783a60fc7ab348b612633e5f082b6f7fe7ed4c29d93d9880e2a10e06f90f204b0e",
+      "note": "Aceptado temporalmente por depuracion de mocks"
+    }
+  ]
+}
