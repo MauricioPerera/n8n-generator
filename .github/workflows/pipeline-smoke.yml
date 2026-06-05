@@ -1,0 +1,39 @@
+name: pipeline-smoke
+
+# Verifica que el pipeline CCDD CORRE desde un clon limpio, sin n8n ni Ollama.
+# Mockea lo externo no-determinista (MCP de n8n + LLM) pero ejecuta el ENSAMBLE CCDD REAL.
+# Cierra la brecha "el flagship script crasheaba en require('../run_mcp_action.js')".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # Mismo commit inmutable que usa el gate de gobernanza (ccdd-gate.yml). Subir de versión
+  # de CCDD = cambiar este sha en un PR, en los dos workflows.
+  CCDD_REF: "8d98ed1a76df86fa4b7a3a63724b538ba4f8c7cf"
+
+jobs:
+  smoke:
+    name: Pipeline smoke (CCDD real, n8n+LLM mock)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias de CCDD
+        run: pip install pyyaml jsonschema cryptography
+      - name: Clonar CCDD (pin inmutable por sha)
+        run: |
+          git clone --filter=blob:none https://github.com/MauricioPerera/ccdd ccdd-ref
+          git -C ccdd-ref checkout "$CCDD_REF"
+      - name: Smoke test (run_mcp_action mock + ensamble CCDD real + pipeline e2e)
+        env:
+          CCDD_PATH: ccdd-ref/ccdd_reference/ccdd.py
+          CCDD_PYTHON: python
+        run: node test_pipeline_smoke.js

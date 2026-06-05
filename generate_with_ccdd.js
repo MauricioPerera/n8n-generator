@@ -1,14 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { callMcp } = require('../run_mcp_action.js');
+const { callMcp } = require('./run_mcp_action.js');
 
-const OLLAMA_URL = "http://localhost:11434/api/chat";
-const MODEL_NAME = "qwen2.5:1.5b";
-const PYTHON_PATH = "C:/Users/Administrador/.gemini/antigravity/scratch/functiongemma-tuning-lab/venv/Scripts/python.exe";
-const CCDD_PATH = "C:/Users/Administrador/.gemini/antigravity/scratch/ccdd/ccdd_reference/ccdd.py";
+// Configurables por entorno para que el pipeline corra desde un clon limpio (no rutas absolutas).
+const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434/api/chat";
+const MODEL_NAME = process.env.OLLAMA_MODEL || "qwen2.5:1.5b";
+const PYTHON_PATH = process.env.CCDD_PYTHON || "python";
+const CCDD_PATH = process.env.CCDD_PATH || path.join(__dirname, "ccdd_reference", "ccdd.py");
+
+// Workflow mínimo y válido para el modo offline (CCDD_LLM_MOCK=1): permite correr el
+// pipeline entero —incluido el ensamble CCDD real— desde un clon limpio sin Ollama vivo.
+const MOCK_LLM_WORKFLOW = [
+  "import { workflow, trigger } from '@n8n/workflow-sdk';",
+  "const webhook = trigger({ type: 'n8n-nodes-base.webhook', version: 2.1, config: { name: 'Webhook Trigger' } });",
+  "export default workflow('mock', 'Mock Workflow').add(webhook);",
+].join('\n');
 
 async function callOllama(messages) {
+  // Hook de prueba: NO altera el comportamiento de producción (default: llamar a Ollama).
+  if (process.env.CCDD_LLM_MOCK === '1') {
+    return '```javascript\n' + MOCK_LLM_WORKFLOW + '\n```';
+  }
   const response = await fetch(OLLAMA_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

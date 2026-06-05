@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { callMcp } = require('../run_mcp_action.js');
+const { callMcp } = require('./run_mcp_action.js');
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const MODEL_NAME = "gemma4:latest";
