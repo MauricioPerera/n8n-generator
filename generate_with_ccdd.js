@@ -4,19 +4,17 @@ const { execSync } = require('child_process');
 const { callMcp } = require('../run_mcp_action.js');
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
-const MODEL_NAME = "gemma4:latest";
+const MODEL_NAME = "qwen2.5:1.5b";
 const PYTHON_PATH = "C:/Users/Administrador/.gemini/antigravity/scratch/functiongemma-tuning-lab/venv/Scripts/python.exe";
 const CCDD_PATH = "C:/Users/Administrador/.gemini/antigravity/scratch/ccdd/ccdd_reference/ccdd.py";
 
-async function callOllama(promptPayload) {
+async function callOllama(messages) {
   const response = await fetch(OLLAMA_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODEL_NAME,
-      messages: [
-        { role: 'user', content: promptPayload }
-      ],
+      messages: messages,
       stream: false
     })
   });
@@ -121,28 +119,54 @@ async function runCCDDWorkflowGeneration(prompt) {
   const promptPayload = lastAssembly.payload;
   console.log(`[+] Ensamble exitoso. Hash del Payload: ${lastAssembly.payload_sha256}`);
 
-  // Step 5: Call Ollama with the assembled context contract
-  console.log(`\n[Paso 5] Consultando modelo local (${MODEL_NAME}) con el payload CCDD...`);
-  const llmResponse = await callOllama(promptPayload);
-  const code = extractCode(llmResponse);
+  // Step 5: Call Ollama with self-correction loop
+  let messages = [
+    { role: 'user', content: promptPayload }
+  ];
+  let code = "";
+  let isValid = false;
+  const maxRetries = 3;
 
-  console.log("\n--- CÓDIGO GENERADO ---");
-  console.log(code);
-  console.log("-----------------------\n");
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`\n[Paso 5 - Intento ${attempt}/${maxRetries}] Consultando modelo local (${MODEL_NAME})...`);
+    try {
+      const llmResponse = await callOllama(messages);
+      code = extractCode(llmResponse);
 
-  // Step 6: Validate generated code
-  console.log("[Paso 6] Validando código del SDK vía MCP...");
-  const valResult = await callMcp("tools/call", {
-    name: "validate_workflow",
-    arguments: { code: code }
-  });
+      console.log(`\n--- CÓDIGO GENERADO (Intento ${attempt}) ---`);
+      console.log(code);
+      console.log("-------------------------------------------\n");
 
-  const parsedVal = JSON.parse(valResult.result.content[0].text);
-  if (!parsedVal.valid) {
-    console.error("[-] Error de validación de flujo n8n:", JSON.stringify(parsedVal, null, 2));
+      // Step 6: Validate generated code
+      console.log(`[Paso 6 - Intento ${attempt}/${maxRetries}] Validando código del SDK vía MCP...`);
+      const valResult = await callMcp("tools/call", {
+        name: "validate_workflow",
+        arguments: { code: code }
+      });
+
+      const parsedVal = JSON.parse(valResult.result.content[0].text);
+      if (parsedVal.valid) {
+        console.log(`[+] ¡Validación exitosa en el intento ${attempt}!`);
+        isValid = true;
+        break;
+      } else {
+        console.warn(`[-] Error de validación en el intento ${attempt}:`, JSON.stringify(parsedVal, null, 2));
+        messages.push({ role: 'assistant', content: llmResponse });
+        messages.push({
+          role: 'user',
+          content: `El código anterior falló la validación con los siguientes errores/advertencias:\n${JSON.stringify(parsedVal, null, 2)}\n\nPor favor corrige el código. Asegúrate de corregir los tokens inesperados, equilibrar los paréntesis/llaves, y exportar usando 'export default workflow(...)'. Devuelve SOLO el código corregido dentro del bloque de javascript.`
+        });
+      }
+    } catch (e) {
+      console.error(`[-] Error en el intento ${attempt}:`, e.message);
+    }
+  }
+
+  if (!isValid) {
+    console.error("[-] No se pudo generar un código válido después de los intentos permitidos.");
     process.exit(1);
   }
-  console.log("[+] Validación exitosa.");
+
 
   // Step 7: Create workflow in n8n
   console.log("[Paso 7] Creando flujo en n8n...");

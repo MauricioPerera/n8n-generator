@@ -2,7 +2,7 @@ ccdd_version: "0.3"
 contract:
   name: "n8n-workflow-generator"
   budget:
-    model: "gemma4:latest"
+    model: "qwen2.5:1.5b"
     max_tokens: 8192
     reserve_output: 1500
   slots:

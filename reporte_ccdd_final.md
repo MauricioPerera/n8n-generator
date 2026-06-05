@@ -4,41 +4,41 @@ Este reporte documenta el ciclo de vida del flujo bajo la metodología CCDD.
 
 ## Detalles del Contrato de Contexto (CCDD)
 * **Nombre de Contrato:** n8n-workflow-generator
-* **Tokens Usados:** 729 / 6692 tokens
-* **Hash del Payload:** f221bfea7cc36626f54288a209c3418b141d51b245a692ff46ddf8edecbb85cc
+* **Tokens Usados:** 809 / 6692 tokens
+* **Hash del Payload:** 5215e29c224d9afc910886c20b6a3a74c70eaf20513b1993bdf4092ab8d384d5
 
 ## Detalles del Flujo Creado
-* **Nombre:** Webhook Filter Error Alert Workflow
-* **ID:** iR6l5c6rT277vcNt
-* **URL:** [Lienzo de n8n](http://localhost:5678/workflow/iR6l5c6rT277vcNt)
+* **Nombre:** Webhook Filter Gmail Workflow
+* **ID:** KG9qwgOM2LMTFUKj
+* **URL:** [Lienzo de n8n](http://localhost:5678/workflow/KG9qwgOM2LMTFUKj)
 
 ## Código SDK Validado
 ```javascript
-import { workflow, node, trigger, newCredential, ifElse } from '@n8n/workflow-sdk';
+import { workflow, node, trigger, newCredential } from '@n8n/workflow-sdk';
 
-// 1. Webhook Trigger (Start)
+// Define the webhook trigger with a basic configuration.
 const webhook = trigger({
   type: 'n8n-nodes-base.webhook',
   version: 2.1,
   config: {
-    name: 'Webhook Listener',
-    parameters: { path: 'webhooks/error-check', httpMethod: 'POST', responseMode: 'onReceived' },
+    name: 'Webhook Trigger',
+    parameters: { path: '/webhook', httpMethod: 'POST', responseMode: 'onReceived' },
     position: [250, 300]
   },
-  output: [{ json: { body: "System error detected during processing." } }] // Dummy data containing 'error'
+  output: [{ body: 'hello error' }]
 });
 
-// 2. Conditional Filter (Check for 'error')
+// Define a filter node that checks if the message contains 'error'.
 const checkError = ifElse({
   version: 2.2,
   config: {
-    name: 'Is Error Detected',
+    name: 'Check Error',
     parameters: {
       conditions: {
         options: { caseSensitive: false, typeValidation: 'loose' },
         conditions: [
           {
-            leftValue: expr('{{ $json.body }}'), // Check the body content
+            leftValue: expr('{{ $json.body?.message ?? $json.message }}'),
             operator: { type: 'string', operation: 'contains' },
             rightValue: 'error'
           }
@@ -50,41 +50,40 @@ const checkError = ifElse({
   }
 });
 
-// 3. Gmail Node (Action)
-const sendErrorEmail = node({
+// Define a Gmail node that sends an email containing the error message.
+const sendEmail = node({
   type: 'n8n-nodes-base.gmail',
   version: 2.1,
   config: {
-    name: 'Send Error Alert via Email',
+    name: 'Send Email via Gmail',
     parameters: {
       resource: 'message',
       operation: 'send',
-      sendTo: 'alert@example.com', // Target recipient for the alert
-      subject: '🚨 CRITICAL SYSTEM ERROR ALERT 🚨',
-      messageType: 'text',
-      // Use the body content from the webhook as the message detail
-      message: expr('An error was detected in the system workflow. Details: {{ $json.body }}')
+      sendTo: 'user@example.com',
+      subject: 'Error Alert',
+      messageType: 'text/plain',
+      message: expr('Error: {{ $json.body?.message ?? $json.message }}')
     },
-    credentials: { gmailOAuth2: newCredential('Gmail Auth Credential') }, // Placeholder credential
-    position: [750, 300]
+    credentials: { gmailOAuth2: newCredential('Gmail OAuth2') }
   },
-  output: [{ id: 'email-sent' }]
+  output: [{ id: '123' }]
 });
 
-export default workflow('webhook-filter-gmail', 'Webhook Filter Error Alert Workflow')
+// Chain the workflow with conditional branches.
+export default workflow('webhook-filter-gmail', 'Webhook Filter Gmail Workflow')
   .add(webhook)
   .to(checkError
-    .onTrue(sendErrorEmail)
+    .onTrue(sendEmail)
   );
 ```
 
 ## Simulación de Ejecución (Test Run)
-* **ID de Ejecución:** 52
+* **ID de Ejecución:** 54
 * **Resultado:** **SUCCESS**
 * **Mocks de Pin Data Inyectados:**
 ```json
 {
-  "Webhook Listener": [
+  "Webhook Trigger": [
     {
       "json": {
         "body": {

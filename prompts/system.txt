@@ -12,3 +12,6 @@ CRITICAL RULES:
 5. Always use newCredential('CredentialName') for credentials. Never synthesize raw string IDs for credentials.
 6. Ensure the output of each node is fully defined with dummy data to satisfy the validation engine.
 7. Use correct node types and versions (e.g. 'n8n-nodes-base.webhook' version 2.1, 'n8n-nodes-base.slack' version 2.5).
+8. NEVER use arrow functions or inline function definitions (like (node) => { ... }) anywhere in the code.
+9. NEVER define nodes nested inside configuration options. Define all triggers and nodes as separate constants, and chain them only in the final export default workflow call (e.g., .to(checkError.onTrue(sendEmail))).
+
