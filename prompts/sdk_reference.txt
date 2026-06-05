@@ -1,21 +1,30 @@
-n8n Workflow SDK Usage Cheat Sheet:
+n8n Workflow SDK — Cheat Sheet (validado contra validate_workflow del MCP server real)
 
-Imports:
-import { workflow, node, trigger, newCredential, ifElse, switchCase, merge, expr } from '@n8n/workflow-sdk';
+REGLA 1 (LA MÁS IMPORTANTE): NO escribas NINGUNA sentencia `import`. Las funciones del SDK ya están
+disponibles globalmente. Una línea `import ... from '@n8n/workflow-sdk'` HACE FALLAR la validación
+("Import declarations are not allowed in SDK code"). Funciones disponibles sin importar:
+workflow, node, trigger, ifElse, switchCase, merge, splitInBatches, nextBatch, newCredential, expr.
 
-Basic Webhook Trigger (v2.1):
+REGLA 2: NO uses nombres reservados (workflow, node, trigger, ifElse, expr, ...) como nombre de
+variable. MAL: `const workflow = workflow(...)`. BIEN: nombrá las variables distinto y exportá con
+`export default workflow('id', 'Nombre')...`.
+
+REGLA 3: Definí cada nodo/trigger como una const aparte, y encadenalos SOLO en el `export default
+workflow(...)`. No anides definiciones de nodos dentro de la config de otro. Nada de arrow functions.
+
+REGLA 4: Para credenciales usá `newCredential('Nombre')`. Nunca inventes IDs ni claves.
+
+Webhook Trigger (v2.1):
 const webhook = trigger({
   type: 'n8n-nodes-base.webhook',
   version: 2.1,
   config: {
     name: 'Webhook Trigger',
-    parameters: { path: 'webhook-path', httpMethod: 'POST', responseMode: 'onReceived' },
-    position: [250, 300]
-  },
-  output: [{ body: { message: 'hello error' } }]
+    parameters: { path: 'webhook-path', httpMethod: 'POST', responseMode: 'onReceived' }
+  }
 });
 
-Filter/ifElse Node (v2.2):
+Filtro condicional / ifElse (v2.2) — usá expr() para expresiones n8n:
 const checkError = ifElse({
   version: 2.2,
   config: {
@@ -32,17 +41,16 @@ const checkError = ifElse({
         ],
         combinator: 'and'
       }
-    },
-    position: [500, 300]
+    }
   }
 });
 
-Gmail Node (v2.1):
+Nodo Gmail (v2.1):
 const sendEmail = node({
   type: 'n8n-nodes-base.gmail',
   version: 2.1,
   config: {
-    name: 'Send Gmail Email',
+    name: 'Send Gmail',
     parameters: {
       resource: 'message',
       operation: 'send',
@@ -51,15 +59,11 @@ const sendEmail = node({
       messageType: 'text',
       message: expr('Error: {{ $json.body?.message ?? $json.message }}')
     },
-    credentials: { gmailOAuth2: newCredential('Gmail OAuth2') },
-    position: [750, 300]
-  },
-  output: [{ id: '123' }]
+    credentials: { gmailOAuth2: newCredential('Gmail OAuth2') }
+  }
 });
 
-Chaining Workflow with Conditional Branch:
+Composición (encadenar SOLO acá; .onTrue() para la rama verdadera del ifElse):
 export default workflow('webhook-filter-gmail', 'Webhook Filter Gmail Workflow')
   .add(webhook)
-  .to(checkError
-    .onTrue(sendEmail)
-  );
+  .to(checkError.onTrue(sendEmail));
