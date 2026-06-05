@@ -1,0 +1,66 @@
+name: ccdd-gate
+
+# Enforce la gobernanza CCDD del contrato (context.yaml) en CI.
+# Cierra la brecha "gobernanza demostrada pero no wireada": ahora L1 y L2 SÍ corren en cada push/PR.
+# Usa la implementación de referencia de CCDD (clonada en CI) — https://github.com/MauricioPerera/ccdd
+#
+# RAÍZ DE CONFIANZA PINNEADA: el clon de CCDD se fija a un commit sha inmutable (CCDD_REF), no a una
+# rama móvil. El comportamiento del gate (reglas R1-R9) queda reproducible y no puede cambiar bajo los
+# pies de este repo si CCDD avanza. Para adoptar una versión nueva de CCDD se actualiza CCDD_REF en un
+# PR — un cambio explícito, revisable y verificable, no un drift silencioso.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # Commit verificado de https://github.com/MauricioPerera/ccdd (main @ 8d98ed1, "Alinear código <-> spec <-> doc").
+  # Es exactamente el código contra el que se validó este gate. Subir de versión = cambiar este sha en un PR.
+  CCDD_REF: "8d98ed1a76df86fa4b7a3a63724b538ba4f8c7cf"
+
+jobs:
+  lint:
+    name: CCDD L1 — lint del contrato (esquema + presupuesto + firmas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias de CCDD
+        run: pip install pyyaml jsonschema cryptography
+      - name: Clonar CCDD (pin inmutable por sha, no por rama)
+        run: |
+          git clone --filter=blob:none https://github.com/MauricioPerera/ccdd ccdd-ref
+          git -C ccdd-ref checkout "$CCDD_REF"
+          echo "CCDD pinneado a $(git -C ccdd-ref rev-parse HEAD)"
+      - name: ccdd lint (verifica que los estáticos coincidan con expected-hashes.json)
+        run: python ccdd-ref/ccdd_reference/ccdd.py lint .
+
+  regression-gate:
+    name: CCDD L2 — gate de regresión (diff base vs head)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout HEAD (la rama del PR)
+        uses: actions/checkout@v4
+        with:
+          path: head
+      - name: Checkout BASE (la rama destino)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias de CCDD
+        run: pip install pyyaml jsonschema cryptography
+      - name: Clonar CCDD (pin inmutable por sha, no por rama)
+        run: |
+          git clone --filter=blob:none https://github.com/MauricioPerera/ccdd ccdd-ref
+          git -C ccdd-ref checkout "$CCDD_REF"
+          echo "CCDD pinneado a $(git -C ccdd-ref rev-parse HEAD)"
+      - name: ccdd diff (bloquea si el PR debilita el contrato sin atestación firmada)
+        run: python ccdd-ref/ccdd_reference/ccdd.py diff base head
