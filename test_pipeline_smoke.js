@@ -22,8 +22,8 @@ const fs = require('fs');
 const { execFileSync } = require('child_process');
 
 let failures = 0;
-function check(name, fn) {
-  try { fn(); console.log(`  ok  - ${name}`); }
+async function check(name, fn) {
+  try { await fn(); console.log(`  ok  - ${name}`); }
   catch (e) { failures++; console.error(`  FAIL- ${name}\n        ${e.message}`); }
 }
 
@@ -40,12 +40,11 @@ async function tool(name, args) {
 }
 
 (async () => {
-  check('list_credentials -> { data: [{id,name,type}], count }', () => {
-    return tool('list_credentials').then((c) => {
-      assert(c && Array.isArray(c.data) && c.data.length > 0, 'esperaba { data: [...] } no vacío');
-      assert(typeof c.count === 'number', 'falta count');
-      assert(c.data[0].id && c.data[0].name && c.data[0].type, 'faltan campos id/name/type');
-    });
+  await check('list_credentials -> { data: [{id,name,type}], count }', async () => {
+    const c = await tool('list_credentials');
+    assert(c && Array.isArray(c.data) && c.data.length > 0, 'esperaba { data: [...] } no vacío');
+    assert(typeof c.count === 'number', 'falta count');
+    assert(c.data[0].id && c.data[0].name && c.data[0].type, 'faltan campos id/name/type');
   });
 
   // assert async: re-ejecuto secuencial para mensajes claros
@@ -54,25 +53,22 @@ async function tool(name, args) {
 
   const goodCode = "import { workflow } from '@n8n/workflow-sdk';\nexport default workflow('x','X');";
   const badCode = 'const x = 1;';
-  check('validate_workflow acepta código sano', async () =>
+  await check('validate_workflow acepta código sano', async () =>
     assert.strictEqual((await tool('validate_workflow', { code: goodCode })).valid, true));
-  check('validate_workflow rechaza código sin export/import', async () =>
+  await check('validate_workflow rechaza código sin export/import', async () =>
     assert.strictEqual((await tool('validate_workflow', { code: badCode })).valid, false));
-  check('create_workflow_from_code -> {workflowId,name,url}', async () => {
+  await check('create_workflow_from_code -> {workflowId,name,url}', async () => {
     const o = await tool('create_workflow_from_code', { code: goodCode, description: 'd' });
     assert(o.workflowId && o.url, 'faltan workflowId/url');
   });
-  check('prepare_test_pin_data -> {nodesWithoutSchema:[]}', async () => {
+  await check('prepare_test_pin_data -> {nodesWithoutSchema:[]}', async () => {
     const o = await tool('prepare_test_pin_data', { workflowId: 'wf' });
     assert(Array.isArray(o.nodesWithoutSchema), 'nodesWithoutSchema no es array');
   });
-  check('test_workflow -> {status,executionId}', async () => {
+  await check('test_workflow -> {status,executionId}', async () => {
     const o = await tool('test_workflow', { workflowId: 'wf', pinData: {} });
     assert(o.status === 'success' && o.executionId, 'status/executionId inválidos');
   });
-
-  // dar tiempo a que las aserciones async impriman antes de la Parte 2
-  await new Promise((r) => setTimeout(r, 50));
 
   // -------------------------------------------------------------------------
   // Parte 2 — pipeline end-to-end (ensamble CCDD real, externo mockeado)
@@ -84,7 +80,7 @@ async function tool(name, args) {
     console.error(`  SKIP- no encuentro ccdd.py en ${ccddPath} (set CCDD_PATH). La Parte 2 requiere CCDD.`);
     failures++; // en CI siempre está; localmente, ausencia = fallo de setup, no "ok"
   } else {
-    check('pipeline corre y completa con exit 0', () => {
+    await check('pipeline corre y completa con exit 0', () => {
       const out = execFileSync('node', [path.join(__dirname, 'generate_with_ccdd.js'), 'flujo de prueba smoke'], {
         cwd: __dirname,
         encoding: 'utf-8',
