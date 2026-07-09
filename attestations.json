@@ -2,9 +2,9 @@
   "system_instructions": [
     {
       "reviewer": "seguridad-admin",
-      "content_sha256": "e313daae053e39028f2a4364e0ad48597206dca9f80724595b5954382cdaaeaf",
-      "signature": "f5523babdeb69f367c652cbc5a07d9284f3ddd3c5df4f45e5dec2e7d023cf9dca5162d25cf4fe3796c31834795d6d837333de421795945154e4295dc0620f703",
-      "note": "system.txt reglas 8-9 (no arrow fns / no nodos anidados). Autorizado por Mauricio; cierra brecha R6 del push directo 31bbe07."
+      "content_sha256": "7f4daf389652df5e3421244f3d2556bdc5a7b9da46f806b204b7f67239363685",
+      "signature": "7a94f4b6e1111677094141ca0e918a0b5e45d77509b94571281e5d3908642a2e116d8bf41781c03e069bd8ad5078a7041a230da9c26eb3be7771d4372e939600",
+      "note": "Quita la instruccion de import contradictoria con sdk_reference.txt (ver docs/FINDINGS.md #3). Aprobado por autorizacion explicita del owner."
     }
   ],
   "sdk_reference": [
